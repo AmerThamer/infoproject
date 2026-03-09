@@ -1,0 +1,10 @@
+Genghis Khan,77231
+Attila the Hun,44590
+Ivan the Terrible,99124
+Napoleon Bonaparte,11873
+Suleiman the Magnificent,64052
+Tamerlane,52390
+Vlad the Impaler,78014
+Shaka Zulu,36452
+Julius Caesar,21089
+Hammurabi,55904

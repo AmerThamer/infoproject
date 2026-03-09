@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/white"
+    android:fillViewport="true"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Rögzítést végző személy"
+            android:textColor="@android:color/black"
+            android:layout_marginTop="8dp" />
+
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <AutoCompleteTextView
+                android:id="@+id/autoInspector"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:hint="Név"
+                android:completionThreshold="1"
+                android:background="@drawable/box_background"
+                android:inputType="textCapSentences" />
+
+            <TextClock
+                android:id="@+id/textClock"
+                android:layout_width="100dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="8dp"
+                android:gravity="center"
+                android:textColor="@android:color/black"
+                android:background="@drawable/box_background"
+                android:format24Hour="HH:mm"
+                android:format12Hour="HH:mm"
+                android:timeZone="Europe/Budapest" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Jelentés adatai"
+            android:textColor="@android:color/black"
+            android:layout_marginTop="12dp" />
+
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:weightSum="2"
+            android:layout_marginTop="8dp">
+
+            <LinearLayout
+                android:orientation="vertical"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Szervezeti egység:"
+                    android:textColor="@android:color/black" />
+
+                <AutoCompleteTextView
+                    android:id="@+id/autoLine"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:hint="Szervezeti egység"
+                    android:completionThreshold="1"
+                    android:background="@drawable/box_background"
+                    android:inputType="textCapSentences" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:orientation="vertical"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Eszközazonosító:"
+                    android:textColor="@android:color/black" />
+
+                <EditText
+                    android:id="@+id/editVehicleCode"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:hint="Eszközazonosító"
+                    android:inputType="text"
+                    android:background="@drawable/box_background" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Érintett munkavállaló"
+            android:textColor="@android:color/black"
+            android:layout_marginTop="12dp" />
+
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <AutoCompleteTextView
+                android:id="@+id/autoDriverName"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:hint="Név"
+                android:completionThreshold="1"
+                android:background="@drawable/box_background"
+                android:inputType="textCapSentences" />
+
+            <AutoCompleteTextView
+                android:id="@+id/autoDriverCode"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:hint="Azonosító"
+                android:completionThreshold="1"
+                android:background="@drawable/box_background"
+                android:inputType="text" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Kezdő hely és idő"
+            android:textColor="@android:color/black"
+            android:layout_marginTop="12dp" />
+
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <AutoCompleteTextView
+                android:id="@+id/autoStartLocation"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:hint="Helyszín"
+                android:completionThreshold="1"
+                android:background="@drawable/box_background"
+                android:inputType="textCapSentences" />
+
+            <EditText
+                android:id="@+id/editStartTime"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:hint="Idő"
+                android:inputType="number"
+                android:maxLength="5"
+                android:background="@drawable/box_background" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Záró hely és idő"
+            android:textColor="@android:color/black"
+            android:layout_marginTop="12dp" />
+
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <AutoCompleteTextView
+                android:id="@+id/autoEndLocation"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:hint="Helyszín"
+                android:completionThreshold="1"
+                android:background="@drawable/box_background"
+                android:inputType="textCapSentences" />
+
+            <EditText
+                android:id="@+id/editEndTime"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:hint="Idő"
+                android:inputType="number"
+                android:maxLength="5"
+                android:background="@drawable/box_background" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Pozitív megállapítások"
+            android:textColor="@android:color/black"
+            android:layout_marginTop="12dp" />
+
+        <TextView
+            android:id="@+id/txtPositive"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:gravity="center_vertical"
+            android:paddingStart="8dp"
+            android:background="@drawable/box_background"
+            android:text="Válassz..."
+            android:textColor="@android:color/black" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Negatív megállapítások"
+            android:textColor="@android:color/black"
+            android:layout_marginTop="12dp" />
+
+        <TextView
+            android:id="@+id/txtNegative"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:gravity="center_vertical"
+            android:paddingStart="8dp"
+            android:background="@drawable/box_background"
+            android:text="Válassz..."
+            android:textColor="@android:color/black" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Megjegyzés"
+            android:textColor="@android:color/black"
+            android:layout_marginTop="12dp" />
+
+        <EditText
+            android:id="@+id/editNotes"
+            android:layout_width="match_parent"
+            android:layout_height="100dp"
+            android:hint="Írd ide..."
+            android:background="@drawable/box_background"
+            android:gravity="top|start"
+            android:inputType="textMultiLine" />
+
+        <Button
+            android:id="@+id/btnGeneratePdf"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="PDF generálás"
+            android:textColor="@android:color/white"
+            android:backgroundTint="@android:color/holo_blue_dark" />
+    </LinearLayout>
+</ScrollView>

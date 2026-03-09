@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <color name="justice_yellow_primary">#16BF98</color>
+    <color name="justice_yellow_dark">#40BF1D</color>
+    <color name="justice_yellow_light">#4AB82A</color>
+    <color name="justice_outline">#299019</color>
+
+    <color name="surface_light">#9ABFD0</color>
+    <color name="on_surface_light">#FF000000</color>
+
+    <color name="purple_200">#297C17</color>
+    <color name="purple_500">#38B134</color>
+    <color name="purple_700">#46A220</color>
+
+    <color name="teal_200">#FF03DAC5</color>
+    <color name="teal_700">#FF018786</color>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+</resources>

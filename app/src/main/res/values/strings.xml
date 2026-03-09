@@ -1,0 +1,25 @@
+<resources>
+    <string name="app_name">Infoprocet</string>
+
+    <string name="pozitiv_eszrevetel1">pozitív megfigyelés 1</string>
+    <string name="pozitiv_eszrevetel2">pozitív megfigyelés 2</string>
+    <string name="pozitiv_eszrevetel3">pozitív megfigyelés 3</string>
+    <string name="pozitiv_eszrevetel4">pozitív megfigyelés 4</string>
+    <string name="pozitiv_eszrevetel5">pozitív megfigyelés 5</string>
+    <string name="pozitiv_eszrevetel6">pozitív megfigyelés 6</string>
+    <string name="pozitiv_eszrevetel7">pozitív megfigyelés 7</string>
+    <string name="pozitiv_eszrevetel8">pozitív megfigyelés 8</string>
+    <string name="pozitiv_eszrevetel9">pozitív megfigyelés 9</string>
+    <string name="pozitiv_eszrevetel10">pozitív megfigyelés 10</string>
+
+    <string name="negativ_eszrevetel1">negatív megfigyelés 1</string>
+    <string name="negativ_eszrevetel2">negatív megfigyelés 2</string>
+    <string name="negativ_eszrevetel3">negatív megfigyelés 3</string>
+    <string name="negativ_eszrevetel4">negatív megfigyelés 4</string>
+    <string name="negativ_eszrevetel5">negatív megfigyelés 5</string>
+    <string name="negativ_eszrevetel6">negatív megfigyelés 6</string>
+    <string name="negativ_eszrevetel7">negatív megfigyelés 7</string>
+    <string name="negativ_eszrevetel8">negatív megfigyelés 8</string>
+    <string name="negativ_eszrevetel9">negatív megfigyelés 9</string>
+    <string name="negativ_eszrevetel10">negatív megfigyelés 10</string>
+</resources>

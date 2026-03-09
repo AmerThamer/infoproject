@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <Button
+        android:id="@+id/btnPickDrivers"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Munkavállalók fájl betallózása" />
+
+    <TextView
+        android:id="@+id/txtDrivers"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Nincs kiválasztva"
+        android:padding="8dp" />
+
+    <Button
+        android:id="@+id/btnPickLocations"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Helyszínek fájl betallózása" />
+
+    <TextView
+        android:id="@+id/txtLocations"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Nincs kiválasztva"
+        android:padding="8dp" />
+
+    <Button
+        android:id="@+id/btnPickInspectors"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Auditorok fájl betallózása" />
+
+    <TextView
+        android:id="@+id/txtInspectors"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Nincs kiválasztva"
+        android:padding="8dp" />
+
+    <Button
+        android:id="@+id/btnUpload"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Fájlok feldolgozása" />
+</LinearLayout>
