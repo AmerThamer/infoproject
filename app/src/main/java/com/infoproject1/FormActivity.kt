@@ -1,19 +1,18 @@
 package com.infoproject1
 
+import android.app.AlertDialog
+import android.app.TimePickerDialog
 import android.os.Bundle
-import android.text.Editable
-import android.text.InputFilter
-import android.text.TextWatcher
-import android.widget.ArrayAdapter
+import android.widget.AutoCompleteTextView
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.infoproject1.app.R
+import androidx.core.widget.doAfterTextChanged
 import com.infoproject1.app.databinding.ActivityFormBinding
-import java.time.LocalDate
-import java.time.LocalTime
-import java.time.format.DateTimeFormatter
-import java.time.format.DateTimeParseException
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 class FormActivity : AppCompatActivity() {
 
@@ -23,16 +22,36 @@ class FormActivity : AppCompatActivity() {
     private var auditors: List<Auditor> = emptyList()
     private var unitLocations: List<UnitLocation> = emptyList()
 
-    private lateinit var employeeNameAdapter: ArrayAdapter<String>
-    private lateinit var employeeIdAdapter: ArrayAdapter<String>
-    private lateinit var auditorNameAdapter: ArrayAdapter<String>
-    private lateinit var unitAdapter: ArrayAdapter<String>
+    private var allUnits: List<String> = emptyList()
+    private var allLocations: List<String> = emptyList()
 
-    private val selectedPositiveItems = mutableListOf<String>()
-    private val selectedNegativeItems = mutableListOf<String>()
+    private var suppressDropdownReopen = false
 
-    private val timeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
-    private var suppressEmployeeSync = false
+    private val positiveOptions = listOf(
+        "Pozitív észrevétel 1",
+        "Pozitív észrevétel 2",
+        "Pozitív észrevétel 3",
+        "Pozitív észrevétel 4",
+        "Pozitív észrevétel 5",
+        "Pozitív észrevétel 6",
+        "Pozitív észrevétel 7",
+        "Pozitív észrevétel 8",
+        "Pozitív észrevétel 9",
+        "Pozitív észrevétel 10"
+    )
+
+    private val negativeOptions = listOf(
+        "Negatív észrevétel 1",
+        "Negatív észrevétel 2",
+        "Negatív észrevétel 3",
+        "Negatív észrevétel 4",
+        "Negatív észrevétel 5",
+        "Negatív észrevétel 6",
+        "Negatív észrevétel 7",
+        "Negatív észrevétel 8",
+        "Negatív észrevétel 9",
+        "Negatív észrevétel 10"
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,507 +63,376 @@ class FormActivity : AppCompatActivity() {
         auditors = storage.loadAuditors()
         unitLocations = storage.loadUnitLocations()
 
-        if (employees.isEmpty() || auditors.isEmpty() || unitLocations.isEmpty()) {
-            Toast.makeText(
-                this,
-                "Hiányoznak a mintafájlokból betöltött adatok. Előbb töltsd be őket a Beállításoknál.",
-                Toast.LENGTH_LONG
-            ).show()
+        allUnits = unitLocations.map { it.unit }.distinct()
+        allLocations = unitLocations.map { it.location }.distinct()
+
+        setupAlwaysShowBehavior(binding.autoDriverName)
+        setupAlwaysShowBehavior(binding.autoInspector)
+        setupAlwaysShowBehavior(binding.autoLine)
+        setupAlwaysShowBehavior(binding.autoStartLocation)
+        setupAlwaysShowBehavior(binding.autoEndLocation)
+
+        bindItems(binding.autoDriverName, employees.map { it.name })
+        bindItems(binding.autoInspector, auditors.map { buildAuditorDisplay(it) })
+        bindItems(binding.autoLine, allUnits)
+        bindItems(binding.autoStartLocation, allLocations)
+        bindItems(binding.autoEndLocation, allLocations)
+
+        binding.autoDriverName.setOnItemClickListener { parent, _, position, _ ->
+            suppressDropdownReopen = true
+            val selectedName = parent.getItemAtPosition(position)?.toString().orEmpty()
+            binding.autoDriverName.setText(selectedName, false)
+            fillEmployeeCodeByName(selectedName)
+            binding.autoDriverName.dismissDropDown()
+            binding.autoDriverName.post { suppressDropdownReopen = false }
         }
 
-        setupEmployeeFields()
-        setupAuditorField()
-        setupUnitAndLocationFields()
-        setupTimeFields()
-        setupObservationSelectors()
+        binding.autoDriverName.doAfterTextChanged { editable ->
+            val typedName = editable?.toString().orEmpty()
+            fillEmployeeCodeByName(typedName)
+
+            if (binding.autoDriverName.hasFocus() && !suppressDropdownReopen) {
+                binding.autoDriverName.post {
+                    if (!suppressDropdownReopen) binding.autoDriverName.showDropDown()
+                }
+            }
+        }
+
+        binding.autoInspector.setOnItemClickListener { parent, _, position, _ ->
+            suppressDropdownReopen = true
+            val selectedDisplay = parent.getItemAtPosition(position)?.toString().orEmpty()
+            binding.autoInspector.setText(selectedDisplay, false)
+            binding.autoInspector.dismissDropDown()
+            binding.autoInspector.post { suppressDropdownReopen = false }
+        }
+
+        binding.autoInspector.doAfterTextChanged { editable ->
+            val typed = editable?.toString()?.trim().orEmpty()
+            val exactAuditor = auditors.firstOrNull {
+                it.name.equals(typed, ignoreCase = true) ||
+                        buildAuditorDisplay(it).equals(typed, ignoreCase = true)
+            }
+
+            if (exactAuditor != null) {
+                val formatted = buildAuditorDisplay(exactAuditor)
+                if (typed != formatted) {
+                    suppressDropdownReopen = true
+                    binding.autoInspector.setText(formatted, false)
+                    binding.autoInspector.setSelection(formatted.length)
+                    binding.autoInspector.post { suppressDropdownReopen = false }
+                }
+            }
+
+            if (binding.autoInspector.hasFocus() && !suppressDropdownReopen) {
+                binding.autoInspector.post {
+                    if (!suppressDropdownReopen) binding.autoInspector.showDropDown()
+                }
+            }
+        }
+
+        binding.autoLine.setOnItemClickListener { parent, _, position, _ ->
+            suppressDropdownReopen = true
+            val unit = parent.getItemAtPosition(position)?.toString()
+            binding.autoLine.setText(unit.orEmpty(), false)
+            updateLocationsForUnit(unit)
+            binding.autoLine.dismissDropDown()
+            binding.autoLine.post { suppressDropdownReopen = false }
+        }
+
+        binding.autoLine.doAfterTextChanged { editable ->
+            val typed = editable?.toString()?.trim().orEmpty()
+            val exactUnit = allUnits.firstOrNull { it.equals(typed, ignoreCase = true) }
+            updateLocationsForUnit(exactUnit)
+
+            if (binding.autoLine.hasFocus() && !suppressDropdownReopen) {
+                binding.autoLine.post {
+                    if (!suppressDropdownReopen) binding.autoLine.showDropDown()
+                }
+            }
+        }
+
+        binding.autoStartLocation.setOnItemClickListener { parent, _, position, _ ->
+            suppressDropdownReopen = true
+            val selected = parent.getItemAtPosition(position)?.toString().orEmpty()
+            binding.autoStartLocation.setText(selected, false)
+            binding.autoStartLocation.dismissDropDown()
+            binding.autoStartLocation.post { suppressDropdownReopen = false }
+        }
+
+        binding.autoEndLocation.setOnItemClickListener { parent, _, position, _ ->
+            suppressDropdownReopen = true
+            val selected = parent.getItemAtPosition(position)?.toString().orEmpty()
+            binding.autoEndLocation.setText(selected, false)
+            binding.autoEndLocation.dismissDropDown()
+            binding.autoEndLocation.post { suppressDropdownReopen = false }
+        }
+
+        setupObservationField(binding.txtPositive, "Pozitív észrevételek", positiveOptions)
+        setupObservationField(binding.txtNegative, "Negatív észrevételek", negativeOptions)
+
+        setupTimeField(binding.editStartTime)
+        setupTimeField(binding.editEndTime)
 
         binding.btnGeneratePdf.setOnClickListener {
             generatePdf()
         }
     }
 
-    private fun setupEmployeeFields() {
-        val employeeNames = employees.map { it.name }.distinct().sorted()
-        val employeeIds = employees.map { it.employeeId }.distinct().sorted()
+    private fun setupAlwaysShowBehavior(view: AutoCompleteTextView) {
+        view.threshold = 0
 
-        employeeNameAdapter = ArrayAdapter(
-            this,
-            android.R.layout.simple_dropdown_item_1line,
-            employeeNames
-        )
-
-        employeeIdAdapter = ArrayAdapter(
-            this,
-            android.R.layout.simple_dropdown_item_1line,
-            employeeIds
-        )
-
-        binding.autoDriverName.setAdapter(employeeNameAdapter)
-        binding.autoDriverCode.setAdapter(employeeIdAdapter)
-
-        binding.autoDriverName.threshold = 1
-        binding.autoDriverCode.threshold = 1
-
-        binding.autoDriverName.setOnItemClickListener { _, _, position, _ ->
-            val selectedName = employeeNameAdapter.getItem(position) ?: return@setOnItemClickListener
-            val employee = employees.firstOrNull { it.name == selectedName } ?: return@setOnItemClickListener
-
-            suppressEmployeeSync = true
-            binding.autoDriverName.setText(employee.name, false)
-            binding.autoDriverCode.setText(employee.employeeId, false)
-            suppressEmployeeSync = false
+        view.setOnClickListener {
+            if (!suppressDropdownReopen) {
+                view.showDropDown()
+            }
         }
 
-        binding.autoDriverCode.setOnItemClickListener { _, _, position, _ ->
-            val selectedId = employeeIdAdapter.getItem(position) ?: return@setOnItemClickListener
-            val employee = employees.firstOrNull { it.employeeId == selectedId } ?: return@setOnItemClickListener
-
-            suppressEmployeeSync = true
-            binding.autoDriverCode.setText(employee.employeeId, false)
-            binding.autoDriverName.setText(employee.name, false)
-            suppressEmployeeSync = false
-        }
-
-        binding.autoDriverName.addTextChangedListener(object : TextWatcher {
-            override fun afterTextChanged(s: Editable?) {
-                if (suppressEmployeeSync) return
-                val text = s?.toString()?.trim().orEmpty()
-                val exact = employees.firstOrNull { it.name.equals(text, ignoreCase = true) }
-                if (exact != null) {
-                    suppressEmployeeSync = true
-                    binding.autoDriverCode.setText(exact.employeeId, false)
-                    suppressEmployeeSync = false
-                } else if (binding.autoDriverCode.text?.isNotBlank() == true) {
-                    suppressEmployeeSync = true
-                    binding.autoDriverCode.setText("", false)
-                    suppressEmployeeSync = false
+        view.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus && !suppressDropdownReopen) {
+                view.post {
+                    if (!suppressDropdownReopen) view.showDropDown()
                 }
             }
-
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
-        })
-
-        binding.autoDriverCode.addTextChangedListener(object : TextWatcher {
-            override fun afterTextChanged(s: Editable?) {
-                if (suppressEmployeeSync) return
-                val text = s?.toString()?.trim().orEmpty()
-                val exact = employees.firstOrNull { it.employeeId.equals(text, ignoreCase = true) }
-                if (exact != null) {
-                    suppressEmployeeSync = true
-                    binding.autoDriverName.setText(exact.name, false)
-                    suppressEmployeeSync = false
-                } else if (binding.autoDriverName.text?.isNotBlank() == true) {
-                    suppressEmployeeSync = true
-                    binding.autoDriverName.setText("", false)
-                    suppressEmployeeSync = false
-                }
-            }
-
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
-        })
-
-        binding.autoDriverName.setOnFocusChangeListener { _, hasFocus ->
-            if (!hasFocus) validateEmployeeSelection()
         }
 
-        binding.autoDriverCode.setOnFocusChangeListener { _, hasFocus ->
-            if (!hasFocus) validateEmployeeSelection()
-        }
-    }
-
-    private fun setupAuditorField() {
-        val auditorNames = auditors.map { "${it.name} (${it.auditorId})" }.sorted()
-
-        auditorNameAdapter = ArrayAdapter(
-            this,
-            android.R.layout.simple_dropdown_item_1line,
-            auditorNames
-        )
-
-        binding.autoInspector.setAdapter(auditorNameAdapter)
-        binding.autoInspector.threshold = 1
-
-        binding.autoInspector.setOnItemClickListener { _, _, position, _ ->
-            val selected = auditorNameAdapter.getItem(position) ?: return@setOnItemClickListener
-            binding.autoInspector.setText(selected, false)
-        }
-
-        binding.autoInspector.setOnFocusChangeListener { _, hasFocus ->
-            if (!hasFocus) {
-                val value = binding.autoInspector.text.toString().trim()
-                if (value.isNotEmpty() && auditors.none { "${it.name} (${it.auditorId})" == value }) {
-                    binding.autoInspector.error = "Csak a betöltött auditorok közül lehet választani"
-                } else {
-                    binding.autoInspector.error = null
+        view.doAfterTextChanged {
+            if (view.hasFocus() && !suppressDropdownReopen) {
+                view.post {
+                    if (!suppressDropdownReopen) view.showDropDown()
                 }
             }
         }
     }
 
-    private fun setupUnitAndLocationFields() {
-        val units = unitLocations.map { it.unit }.distinct().sorted()
-
-        unitAdapter = ArrayAdapter(
-            this,
-            android.R.layout.simple_dropdown_item_1line,
-            units
-        )
-
-        binding.autoLine.setAdapter(unitAdapter)
-        binding.autoLine.threshold = 1
-
-        binding.autoLine.setOnItemClickListener { _, _, position, _ ->
-            val selectedUnit = unitAdapter.getItem(position) ?: return@setOnItemClickListener
-            binding.autoLine.setText(selectedUnit, false)
-            updateLocationsForUnit(selectedUnit)
-        }
-
-        binding.autoLine.addTextChangedListener(object : TextWatcher {
-            override fun afterTextChanged(s: Editable?) {
-                val unit = s?.toString()?.trim().orEmpty()
-                if (units.contains(unit)) {
-                    updateLocationsForUnit(unit)
-                    binding.autoLine.error = null
-                } else {
-                    binding.autoStartLocation.setText("", false)
-                    binding.autoEndLocation.setText("", false)
-                }
-            }
-
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
-        })
-
-        binding.autoLine.setOnFocusChangeListener { _, hasFocus ->
-            if (!hasFocus) {
-                val unit = binding.autoLine.text.toString().trim()
-                if (unit.isBlank()) {
-                    binding.autoLine.error = "Kötelező mező"
-                } else {
-                    binding.autoLine.error = null
-                }
-            }
-        }
-
-        binding.autoStartLocation.setOnFocusChangeListener { _, hasFocus ->
-            if (!hasFocus) validateLocationField(binding.autoStartLocation.text.toString().trim(), true)
-        }
-
-        binding.autoEndLocation.setOnFocusChangeListener { _, hasFocus ->
-            if (!hasFocus) validateLocationField(binding.autoEndLocation.text.toString().trim(), false)
-        }
+    private fun bindItems(view: AutoCompleteTextView, items: List<String>) {
+        view.setAdapter(AlwaysShowArrayAdapter(this, items.distinct()))
     }
 
-    private fun updateLocationsForUnit(unit: String) {
-        val locations = unitLocations
-            .filter { it.unit == unit }
-            .map { it.location }
-            .distinct()
-            .sorted()
-
-        val adapter = ArrayAdapter(
-            this,
-            android.R.layout.simple_dropdown_item_1line,
-            locations
-        )
-
-        binding.autoStartLocation.setAdapter(adapter)
-        binding.autoEndLocation.setAdapter(adapter)
-
-        binding.autoStartLocation.threshold = 1
-        binding.autoEndLocation.threshold = 1
-
-        binding.autoStartLocation.setOnItemClickListener { _, _, position, _ ->
-            val selected = adapter.getItem(position) ?: return@setOnItemClickListener
-            binding.autoStartLocation.setText(selected, false)
-        }
-
-        binding.autoEndLocation.setOnItemClickListener { _, _, position, _ ->
-            val selected = adapter.getItem(position) ?: return@setOnItemClickListener
-            binding.autoEndLocation.setText(selected, false)
-        }
-    }
-
-    private fun setupTimeFields() {
-        binding.editStartTime.filters = arrayOf(InputFilter.LengthFilter(5))
-        binding.editEndTime.filters = arrayOf(InputFilter.LengthFilter(5))
-
-        binding.editStartTime.addTextChangedListener(TimeMaskTextWatcher(binding.editStartTime))
-        binding.editEndTime.addTextChangedListener(TimeMaskTextWatcher(binding.editEndTime))
-
-        binding.editStartTime.setOnFocusChangeListener { _, hasFocus ->
-            if (!hasFocus) validateSingleTime(binding.editStartTime.text.toString().trim(), isStart = true)
-        }
-
-        binding.editEndTime.setOnFocusChangeListener { _, hasFocus ->
-            if (!hasFocus) validateSingleTime(binding.editEndTime.text.toString().trim(), isStart = false)
-        }
-    }
-
-    private fun setupObservationSelectors() {
-        binding.txtPositive.keyListener = null
-        binding.txtNegative.keyListener = null
-
-        binding.txtPositive.isFocusable = false
-        binding.txtNegative.isFocusable = false
-
-        binding.txtPositive.setOnClickListener {
-            showMultiSelectDialog(
-                title = "Pozitív észrevételek",
-                items = getPositiveObservationItems(),
-                selectedItems = selectedPositiveItems
-            ) { selected ->
-                selectedPositiveItems.clear()
-                selectedPositiveItems.addAll(selected)
-                binding.txtPositive.setText(selectedPositiveItems.joinToString("\n"))
+    private fun updateLocationsForUnit(unit: String?) {
+        val locations =
+            if (unit.isNullOrBlank()) {
+                allLocations
+            } else {
+                unitLocations
+                    .filter { it.unit.equals(unit, ignoreCase = true) }
+                    .map { it.location }
+                    .distinct()
+                    .ifEmpty { allLocations }
             }
-        }
 
-        binding.txtNegative.setOnClickListener {
-            showMultiSelectDialog(
-                title = "Negatív észrevételek",
-                items = getNegativeObservationItems(),
-                selectedItems = selectedNegativeItems
-            ) { selected ->
-                selectedNegativeItems.clear()
-                selectedNegativeItems.addAll(selected)
-                binding.txtNegative.setText(selectedNegativeItems.joinToString("\n"))
-            }
-        }
+        bindItems(binding.autoStartLocation, locations)
+        bindItems(binding.autoEndLocation, locations)
     }
 
-    private fun showMultiSelectDialog(
+    private fun fillEmployeeCodeByName(name: String) {
+        val cleanName = name.trim()
+
+        val match = employees.firstOrNull {
+            it.name.equals(cleanName, ignoreCase = true)
+        }
+
+        binding.autoDriverCode.setText(match?.employeeId.orEmpty())
+    }
+
+    private fun buildAuditorDisplay(auditor: Auditor): String {
+        return "${auditor.name} (${auditor.auditorId})"
+    }
+
+    private fun extractAuditorData(display: String): Pair<String, String> {
+        val trimmed = display.trim()
+
+        val exactDisplayMatch = auditors.firstOrNull {
+            buildAuditorDisplay(it).equals(trimmed, ignoreCase = true)
+        }
+        if (exactDisplayMatch != null) {
+            return exactDisplayMatch.name to exactDisplayMatch.auditorId
+        }
+
+        val exactNameMatch = auditors.firstOrNull {
+            it.name.equals(trimmed, ignoreCase = true)
+        }
+        if (exactNameMatch != null) {
+            return exactNameMatch.name to exactNameMatch.auditorId
+        }
+
+        return trimmed to ""
+    }
+
+    private fun setupObservationField(
+        view: TextView,
         title: String,
-        items: List<String>,
-        selectedItems: MutableList<String>,
-        onApply: (List<String>) -> Unit
+        options: List<String>
     ) {
-        val checked = BooleanArray(items.size) { index ->
-            selectedItems.contains(items[index])
-        }
-        val tempSelected = selectedItems.toMutableList()
+        view.isFocusable = false
+        view.isFocusableInTouchMode = false
+        view.isClickable = true
+        view.isLongClickable = false
 
-        MaterialAlertDialogBuilder(this)
+        view.setOnClickListener {
+            showObservationDialog(view, title, options)
+        }
+    }
+
+    private fun showObservationDialog(
+        targetView: TextView,
+        title: String,
+        options: List<String>
+    ) {
+        val currentSelections = targetView.text.toString()
+            .split("\n")
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .toSet()
+
+        val checkedItems = BooleanArray(options.size) { index ->
+            options[index] in currentSelections
+        }
+
+        AlertDialog.Builder(this)
             .setTitle(title)
-            .setMultiChoiceItems(items.toTypedArray(), checked) { _, which, isChecked ->
-                val item = items[which]
-                if (isChecked) {
-                    if (!tempSelected.contains(item)) tempSelected.add(item)
-                } else {
-                    tempSelected.remove(item)
-                }
+            .setMultiChoiceItems(options.toTypedArray(), checkedItems) { _, which, isChecked ->
+                checkedItems[which] = isChecked
             }
-            .setPositiveButton("OK") { _, _ ->
-                onApply(tempSelected)
+            .setPositiveButton("OK") { dialog, _ ->
+                val selected = options.filterIndexed { index, _ -> checkedItems[index] }
+                targetView.text = selected.joinToString("\n")
+                dialog.dismiss()
             }
-            .setNegativeButton("Mégse", null)
+            .setNegativeButton("Mégse") { dialog, _ ->
+                dialog.dismiss()
+            }
+            .setNeutralButton("Törlés") { dialog, _ ->
+                targetView.text = ""
+                dialog.dismiss()
+            }
             .show()
     }
 
-    private fun getPositiveObservationItems(): List<String> {
-        return listOf(
-            getString(R.string.pozitiv_eszrevetel1),
-            getString(R.string.pozitiv_eszrevetel2),
-            getString(R.string.pozitiv_eszrevetel3),
-            getString(R.string.pozitiv_eszrevetel4),
-            getString(R.string.pozitiv_eszrevetel5),
-            getString(R.string.pozitiv_eszrevetel6),
-            getString(R.string.pozitiv_eszrevetel7),
-            getString(R.string.pozitiv_eszrevetel8),
-            getString(R.string.pozitiv_eszrevetel9),
-            getString(R.string.pozitiv_eszrevetel10)
-        )
-    }
+    private fun setupTimeField(view: TextView) {
+        view.isFocusable = false
+        view.isFocusableInTouchMode = false
+        view.isClickable = true
+        view.isLongClickable = false
 
-    private fun getNegativeObservationItems(): List<String> {
-        return listOf(
-            getString(R.string.negativ_eszrevetel1),
-            getString(R.string.negativ_eszrevetel2),
-            getString(R.string.negativ_eszrevetel3),
-            getString(R.string.negativ_eszrevetel4),
-            getString(R.string.negativ_eszrevetel5),
-            getString(R.string.negativ_eszrevetel6),
-            getString(R.string.negativ_eszrevetel7),
-            getString(R.string.negativ_eszrevetel8),
-            getString(R.string.negativ_eszrevetel9),
-            getString(R.string.negativ_eszrevetel10)
-        )
-    }
-
-    private fun validateEmployeeSelection(): Boolean {
-        val name = binding.autoDriverName.text.toString().trim()
-        val employeeId = binding.autoDriverCode.text.toString().trim()
-
-        val exactByName = employees.firstOrNull { it.name.equals(name, ignoreCase = true) }
-        val exactById = employees.firstOrNull { it.employeeId.equals(employeeId, ignoreCase = true) }
-
-        return when {
-            name.isBlank() || employeeId.isBlank() -> {
-                if (name.isBlank()) binding.autoDriverName.error = "Kötelező mező"
-                if (employeeId.isBlank()) binding.autoDriverCode.error = "Kötelező mező"
-                false
-            }
-
-            exactByName == null || exactById == null -> {
-                binding.autoDriverName.error = "Csak a betöltött munkavállalók közül lehet választani"
-                binding.autoDriverCode.error = "Csak a betöltött azonosítók közül lehet választani"
-                false
-            }
-
-            exactByName.employeeId != exactById.employeeId -> {
-                binding.autoDriverName.error = "A név és azonosító nem tartozik össze"
-                binding.autoDriverCode.error = "A név és azonosító nem tartozik össze"
-                false
-            }
-
-            else -> {
-                binding.autoDriverName.error = null
-                binding.autoDriverCode.error = null
-                true
-            }
+        view.setOnClickListener {
+            showTimePicker(view)
         }
     }
 
-    private fun validateLocationField(location: String, isStart: Boolean): Boolean {
-        val unit = binding.autoLine.text.toString().trim()
-        val validLocations = unitLocations
-            .filter { it.unit == unit }
-            .map { it.location }
+    private fun showTimePicker(targetView: TextView) {
+        val calendar = Calendar.getInstance()
 
-        val valid = validLocations.contains(location)
-
-        if (isStart) {
-            binding.autoStartLocation.error =
-                if (valid) null else "Csak az adott szervezeti egységhez tartozó helyszín választható"
-        } else {
-            binding.autoEndLocation.error =
-                if (valid) null else "Csak az adott szervezeti egységhez tartozó helyszín választható"
+        val existing = targetView.text.toString().trim()
+        if (isValidTime(existing)) {
+            val parts = existing.split(":")
+            calendar.set(Calendar.HOUR_OF_DAY, parts[0].toInt())
+            calendar.set(Calendar.MINUTE, parts[1].toInt())
         }
 
-        return valid
+        TimePickerDialog(
+            this,
+            { _, hourOfDay, minute ->
+                targetView.text = String.format(
+                    Locale.getDefault(),
+                    "%02d:%02d",
+                    hourOfDay,
+                    minute
+                )
+            },
+            calendar.get(Calendar.HOUR_OF_DAY),
+            calendar.get(Calendar.MINUTE),
+            true
+        ).show()
     }
 
-    private fun validateSingleTime(value: String, isStart: Boolean): Boolean {
-        val valid = parseTimeOrNull(value) != null
-        if (isStart) {
-            binding.editStartTime.error = if (valid) null else "Érvényes időformátum: HH:mm"
-        } else {
-            binding.editEndTime.error = if (valid) null else "Érvényes időformátum: HH:mm"
-        }
-        return valid
+    private fun isValidTime(value: String): Boolean {
+        val regex = Regex("^\\d{2}:\\d{2}$")
+        if (!regex.matches(value)) return false
+
+        val parts = value.split(":")
+        val hour = parts[0].toIntOrNull() ?: return false
+        val minute = parts[1].toIntOrNull() ?: return false
+
+        return hour in 0..23 && minute in 0..59
     }
 
-    private fun validateTimesTogether(): Boolean {
-        val startTime = parseTimeOrNull(binding.editStartTime.text.toString().trim())
-        val endTime = parseTimeOrNull(binding.editEndTime.text.toString().trim())
-
-        if (startTime == null || endTime == null) {
-            if (startTime == null) binding.editStartTime.error = "Érvényes időformátum: HH:mm"
-            if (endTime == null) binding.editEndTime.error = "Érvényes időformátum: HH:mm"
-            return false
-        }
-
-        binding.editStartTime.error = null
-        binding.editEndTime.error = null
-        return true
-    }
-
-    private fun parseTimeOrNull(value: String): LocalTime? {
-        return try {
-            LocalTime.parse(value, timeFormatter)
-        } catch (_: DateTimeParseException) {
-            null
-        }
+    private fun parseSelectedLines(text: String): List<String> {
+        return text.split("\n")
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
     }
 
     private fun generatePdf() {
-        val auditorText = binding.autoInspector.text.toString().trim()
-        val employeeName = binding.autoDriverName.text.toString().trim()
+        val auditorDisplay = binding.autoInspector.text.toString().trim()
+        val (auditorName, auditorCode) = extractAuditorData(auditorDisplay)
+
+        val employee = binding.autoDriverName.text.toString().trim()
         val employeeId = binding.autoDriverCode.text.toString().trim()
+
         val unit = binding.autoLine.text.toString().trim()
-        val vehicleCode = binding.editVehicleCode.text.toString().trim()
         val startLocation = binding.autoStartLocation.text.toString().trim()
         val endLocation = binding.autoEndLocation.text.toString().trim()
         val startTime = binding.editStartTime.text.toString().trim()
         val endTime = binding.editEndTime.text.toString().trim()
         val notes = binding.editNotes.text.toString().trim()
 
-        val selectedAuditor = auditors.firstOrNull { "${it.name} (${it.auditorId})" == auditorText }
+        val positives = parseSelectedLines(binding.txtPositive.text.toString())
+        val negatives = parseSelectedLines(binding.txtNegative.text.toString())
 
-        val isValid = validateEmployeeSelection() &&
-                (selectedAuditor != null).also {
-                    binding.autoInspector.error =
-                        if (it) null else "Csak a betöltött auditorok közül lehet választani"
-                } &&
-                unit.isNotBlank().also {
-                    binding.autoLine.error = if (it) null else "Kötelező mező"
-                } &&
-                validateLocationField(startLocation, true) &&
-                validateLocationField(endLocation, false) &&
-                validateTimesTogether()
-
-        if (!isValid) {
-            Toast.makeText(this, "Javítsd a hibás mezőket", Toast.LENGTH_SHORT).show()
+        if (auditorName.isBlank()) {
+            toast("Az ellenőrző személy mező kitöltése kötelező.")
             return
         }
 
+        if (employee.isBlank()) {
+            toast("Az ellenőrzött személy mező kitöltése kötelező.")
+            return
+        }
+
+        if (employeeId.isBlank()) {
+            toast("Az ellenőrzött személy azonosítója nincs kitöltve.")
+            return
+        }
+
+        if (unit.isBlank()) {
+            toast("A szervezeti egység mező kitöltése kötelező.")
+            return
+        }
+
+        if (startLocation.isBlank() || endLocation.isBlank()) {
+            toast("Az ellenőrzés helyét ki kell választani.")
+            return
+        }
+
+        if (!isValidTime(startTime) || !isValidTime(endTime)) {
+            toast("Csak érvényes időpont adható meg (HH:mm).")
+            return
+        }
+
+        val today = SimpleDateFormat("yyyy.MM.dd", Locale.getDefault()).format(Date())
+
         val reportData = ReportData(
             headerTitle = "Ellenőrzési jelentés",
-            inspectorName = selectedAuditor!!.name,
-            inspectorCode = selectedAuditor.auditorId,
-            driverName = employeeName,
+            inspectorName = auditorName,
+            inspectorCode = auditorCode,
+            driverName = employee,
             driverCode = employeeId,
             line = unit,
             startLoc = startLocation,
             startTime = startTime,
             endLoc = endLocation,
             endTime = endTime,
-            dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy.MM.dd")),
-            positives = selectedPositiveItems.toList(),
-            negatives = selectedNegativeItems.toList(),
-            notes = buildString {
-                if (vehicleCode.isNotBlank()) {
-                    append("Eszköz azonosító: ")
-                    append(vehicleCode)
-                    if (notes.isNotBlank()) append("\n")
-                }
-                if (notes.isNotBlank()) {
-                    append(notes)
-                }
-            }
+            dateStr = today,
+            positives = positives,
+            negatives = negatives,
+            notes = notes
         )
 
         val file = PdfLayout.render(this, reportData)
         FileUtils.openPdf(this, file)
     }
 
-    private class TimeMaskTextWatcher(
-        private val target: android.widget.EditText
-    ) : TextWatcher {
-
-        private var selfChange = false
-
-        override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
-
-        override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
-
-        override fun afterTextChanged(s: Editable?) {
-            if (selfChange) return
-
-            val raw = s?.toString().orEmpty().filter { it.isDigit() }.take(4)
-            val formatted = when {
-                raw.length <= 2 -> raw
-                else -> raw.substring(0, 2) + ":" + raw.substring(2)
-            }
-
-            if (formatted != s?.toString().orEmpty()) {
-                selfChange = true
-                target.setText(formatted)
-                target.setSelection(formatted.length)
-                selfChange = false
-            }
-        }
+    private fun toast(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 }
