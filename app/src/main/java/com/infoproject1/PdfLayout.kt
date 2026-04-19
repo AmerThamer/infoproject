@@ -4,13 +4,14 @@ import android.content.Context
 import android.graphics.*
 import android.graphics.pdf.PdfDocument
 import android.os.Environment
+import com.infoproject1.app.R
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.*
 
 data class ReportData(
-    val headerTitle: String,              // pl. "Ellenőrzési jegyzőkönyv"
+    val headerTitle: String,
     val inspectorName: String,
     val inspectorCode: String,
     val driverName: String,
@@ -20,7 +21,7 @@ data class ReportData(
     val startTime: String,
     val endLoc: String,
     val endTime: String,
-    val dateStr: String,                  // "yyyy.MM.dd"
+    val dateStr: String,
     val positives: List<String>,
     val negatives: List<String>,
     val notes: String
@@ -28,16 +29,14 @@ data class ReportData(
 
 object PdfLayout {
 
-    // A4 pontosan: 595x842 pt (Portrait)
     private const val PAGE_WIDTH = 595
     private const val PAGE_HEIGHT = 842
 
-    // Margók és grid
-    private const val MARGIN_L = 40f
-    private const val MARGIN_R = 40f
-    private const val MARGIN_T = 48f
-    private const val MARGIN_B = 48f
-    private const val COL_GAP = 24f
+    private const val MARGIN_L = 32f
+    private const val MARGIN_R = 32f
+    private const val MARGIN_T = 32f
+    private const val MARGIN_B = 32f
+    private const val COL_GAP = 18f
 
     private val black = Color.BLACK
     private val grey = Color.rgb(90, 90, 90)
@@ -48,28 +47,27 @@ object PdfLayout {
         var page = startPage(pdf, pageNumber)
         var canvas = page.canvas
 
-        // Festékek/stílusok
         val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            textSize = 18f
+            textSize = 16f
             color = black
         }
 
         val h2Paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            textSize = 14f
+            textSize = 12.5f
             color = black
         }
 
         val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
-            textSize = 11.5f
+            textSize = 11.2f
             color = black
         }
 
         val smallPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
-            textSize = 9.5f
+            textSize = 8.8f
             color = grey
         }
 
@@ -78,29 +76,49 @@ object PdfLayout {
             strokeWidth = 0.8f
         }
 
-        // Oldalhasznos terület
         val xLeft = MARGIN_L
         val xRight = PAGE_WIDTH - MARGIN_R
         val contentWidth = xRight - xLeft
 
+        val logoBitmap = loadHeaderLogo(context)
+
         var y = MARGIN_T
 
-        // ---------- FEJLÉC ----------
-        y = drawHeader(canvas, data, titlePaint, smallPaint, linePaint, xLeft, xRight, y)
+        y = drawHeader(
+            canvas = canvas,
+            data = data,
+            titlePaint = titlePaint,
+            smallPaint = smallPaint,
+            linePaint = linePaint,
+            xLeft = xLeft,
+            xRight = xRight,
+            yTop = y,
+            logo = logoBitmap
+        )
 
-        // ---------- META BLOKK (kulcs-érték) ----------
-        y += 12f
-        val kvGap = 6f
+        y += 6f
+
+        val kvGap = 5f
         val kv = listOf(
             "Auditor" to "${data.inspectorName} (${data.inspectorCode})",
-            "Ellenörző személy" to "${data.driverName} (${data.driverCode})",
-            "Szervezeti Egység" to data.line,
-            "Szakasz" to "${data.startTime} ${data.startLoc}  –  ${data.endTime} ${data.endLoc}"
+            "Ellenőrző személy" to "${data.driverName} (${data.driverCode})",
+            "Szervezeti egység" to data.line,
+            "Ellenőrzés helye" to "${data.startTime} ${data.startLoc} – ${data.endTime} ${data.endLoc}"
         )
+
         for ((k, v) in kv) {
-            val h = drawKeyValue(canvas, k, v, h2Paint, bodyPaint, xLeft, xRight, y, contentWidth)
+            val h = drawKeyValue(
+                canvas = canvas,
+                key = k,
+                value = v,
+                keyPaint = h2Paint,
+                valPaint = bodyPaint,
+                xLeft = xLeft,
+                yTop = y,
+                maxWidth = contentWidth
+            )
             y += h + kvGap
-            // Szükség esetén új oldal
+
             if (y > PAGE_HEIGHT - MARGIN_B - 140f) {
                 drawFooter(canvas, pageNumber, smallPaint, xLeft, xRight)
                 pdf.finishPage(page)
@@ -111,60 +129,91 @@ object PdfLayout {
             }
         }
 
-        // Választóvonal
-        canvas.drawLine(xLeft, y + 6f, xRight, y + 6f, linePaint)
-        y += 18f
+        canvas.drawLine(xLeft, y + 2f, xRight, y + 2f, linePaint)
+        y += 14f
 
-        // ---------- POZITÍV / NEGATÍV OSZLOPOK ----------
         val colWidth = (contentWidth - COL_GAP) / 2f
         val colLeftX = xLeft
         val colRightX = xLeft + colWidth + COL_GAP
 
-        // Címek
-        y = ensureSpace(pdf, page, canvas, y, 28f, smallPaint, xLeft, xRight) { newPage, pn ->
-            page = newPage; canvas = page.canvas; pageNumber = pn
+        y = ensureSpace(pdf, page, canvas, y, 24f, smallPaint, xLeft, xRight) { newPage, pn ->
+            page = newPage
+            canvas = page.canvas
+            pageNumber = pn
         }
-        canvas.drawText("Pozitív észrevételek", colLeftX, y, h2Paint)
-        canvas.drawText("Negatív észrevételek", colRightX, y, h2Paint)
-        y += 12f
 
-        // Listák tördelése oszlopokban
+        drawSingleLineText(canvas, "Pozitív észrevételek", colLeftX, y, h2Paint)
+        drawSingleLineText(canvas, "Negatív észrevételek", colRightX, y, h2Paint)
+        y += lineHeight(h2Paint)
+
         val leftEndY = drawBulletedListInColumn(
-            pdf, page, canvas, data.positives, bodyPaint, smallPaint,
-            colLeftX, colLeftX + colWidth, y, xLeft, xRight
-        ) { newPage, pn -> page = newPage; canvas = page.canvas; pageNumber = pn }
+            pdf = pdf,
+            page = page,
+            canvas = canvas,
+            items = data.positives,
+            bodyPaint = bodyPaint,
+            smallPaint = smallPaint,
+            xLeft = colLeftX,
+            xRight = colLeftX + colWidth,
+            startY = y,
+            globalLeft = xLeft,
+            globalRight = xRight
+        ) { newPage, pn ->
+            page = newPage
+            canvas = newPage.canvas
+            pageNumber = pn
+        }
 
         val rightEndY = drawBulletedListInColumn(
-            pdf, page, canvas, data.negatives, bodyPaint, smallPaint,
-            colRightX, colRightX + colWidth, y, xLeft, xRight
-        ) { newPage, pn -> page = newPage; canvas = page.canvas; pageNumber = pn }
+            pdf = pdf,
+            page = page,
+            canvas = canvas,
+            items = data.negatives,
+            bodyPaint = bodyPaint,
+            smallPaint = smallPaint,
+            xLeft = colRightX,
+            xRight = colRightX + colWidth,
+            startY = y,
+            globalLeft = xLeft,
+            globalRight = xRight
+        ) { newPage, pn ->
+            page = newPage
+            canvas = newPage.canvas
+            pageNumber = pn
+        }
 
-        y = maxOf(leftEndY, rightEndY) + 10f
+        y = maxOf(leftEndY, rightEndY) + 8f
 
-        // ---------- MEGJEGYZÉS ----------
         if (data.notes.isNotBlank()) {
             y = ensureSpace(pdf, page, canvas, y, 24f, smallPaint, xLeft, xRight) { newPage, pn ->
-                page = newPage; canvas = page.canvas; pageNumber = pn
+                page = newPage
+                canvas = newPage.canvas
+                pageNumber = pn
             }
-            canvas.drawText("Megjegyzés", xLeft, y, h2Paint)
-            y += 10f
+
+            drawSingleLineText(canvas, "Megjegyzés", xLeft, y, h2Paint)
+            y += lineHeight(h2Paint)
+
             val wrapped = wrapText(data.notes, bodyPaint, contentWidth)
+            val noteLineHeight = lineHeight(bodyPaint)
+
             for (line in wrapped) {
-                y = ensureSpace(pdf, page, canvas, y, bodyPaint.textSize + 5f, smallPaint, xLeft, xRight) { newPage, pn ->
-                    page = newPage; canvas = page.canvas; pageNumber = pn
+                y = ensureSpace(pdf, page, canvas, y, noteLineHeight, smallPaint, xLeft, xRight) { newPage, pn ->
+                    page = newPage
+                    canvas = newPage.canvas
+                    pageNumber = pn
                 }
-                canvas.drawText(line, xLeft, y, bodyPaint)
-                y += bodyPaint.textSize + 5f
+                drawSingleLineText(canvas, line, xLeft, y, bodyPaint)
+                y += noteLineHeight
             }
         }
 
-        // ---------- LÁBLÉC ----------
         drawFooter(canvas, pageNumber, smallPaint, xLeft, xRight)
         pdf.finishPage(page)
 
-        // Mentés
         val dir = File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "Ellenőrzések")
         if (!dir.exists()) dir.mkdirs()
+
         val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
         val file = File(dir, "${stamp}_${data.inspectorCode}.pdf")
 
@@ -173,11 +222,15 @@ object PdfLayout {
         return file
     }
 
-    // ===== Segédfüggvények =====
-
     private fun startPage(pdf: PdfDocument, pageNumber: Int): PdfDocument.Page {
         val pageInfo = PdfDocument.PageInfo.Builder(PAGE_WIDTH, PAGE_HEIGHT, pageNumber).create()
         return pdf.startPage(pageInfo)
+    }
+
+    private fun loadHeaderLogo(context: Context): Bitmap? {
+        return runCatching {
+            BitmapFactory.decodeResource(context.resources, R.drawable.fejlecpdf)
+        }.getOrNull()
     }
 
     private fun drawHeader(
@@ -188,20 +241,48 @@ object PdfLayout {
         linePaint: Paint,
         xLeft: Float,
         xRight: Float,
-        yTop: Float
+        yTop: Float,
+        logo: Bitmap?
     ): Float {
         var y = yTop
-        // Főcím
-        canvas.drawText(data.headerTitle, xLeft, y, titlePaint)
-        // Dátum a jobb felső sarokban
-        val dateText = "Dátum: ${data.dateStr}"
-        val dateWidth = smallPaint.measureText(dateText)
-        canvas.drawText(dateText, xRight - dateWidth, y, smallPaint)
-        y += 10f
 
-        // Vékony elválasztó
-        canvas.drawLine(xLeft, y + 6f, xRight, y + 6f, linePaint)
-        return y + 16f
+        val logoBoxWidth = 92f
+        val logoBoxHeight = 42f
+        val logoPadding = 12f
+
+        val reservedRightWidth = if (logo != null) logoBoxWidth + logoPadding else 0f
+        val titleMaxWidth = (xRight - xLeft - reservedRightWidth).coerceAtLeast(100f)
+
+        val titleLines = wrapText(data.headerTitle, titlePaint, titleMaxWidth)
+        val titleLineHeight = lineHeight(titlePaint)
+
+        var titleBottom = y
+        for (line in titleLines) {
+            drawSingleLineText(canvas, line, xLeft, titleBottom, titlePaint)
+            titleBottom += titleLineHeight
+        }
+
+        if (logo != null) {
+            val dest = fitRectTopRight(
+                bitmapWidth = logo.width.toFloat(),
+                bitmapHeight = logo.height.toFloat(),
+                boxLeft = xRight - logoBoxWidth,
+                boxTop = y,
+                boxWidth = logoBoxWidth,
+                boxHeight = logoBoxHeight
+            )
+
+            val bitmapPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+            canvas.drawBitmap(logo, null, dest, bitmapPaint)
+        }
+
+        y = titleBottom
+
+        drawSingleLineText(canvas, "Dátum: ${data.dateStr}", xLeft, y, smallPaint)
+        y += lineHeight(smallPaint) + 2f
+
+        canvas.drawLine(xLeft, y, xRight, y, linePaint)
+        return y + 6f
     }
 
     private fun drawKeyValue(
@@ -211,23 +292,28 @@ object PdfLayout {
         keyPaint: Paint,
         valPaint: Paint,
         xLeft: Float,
-        xRight: Float,
         yTop: Float,
         maxWidth: Float
     ): Float {
-        val keyWidth = keyPaint.measureText("$key: ")
-        canvas.drawText("$key:", xLeft, yTop, keyPaint)
+        val keyPrefix = "$key: "
+        val keyWidth = keyPaint.measureText(keyPrefix)
+        val firstLineWidth = (maxWidth - keyWidth).coerceAtLeast(60f)
 
-        val lines = wrapText(value, valPaint, maxWidth - keyWidth)
-        var y = yTop
+        val lines = wrapText(value, valPaint, firstLineWidth)
+        val valueLineHeight = lineHeight(valPaint)
+
+        drawSingleLineText(canvas, keyPrefix, xLeft, yTop, keyPaint)
+
+        var currentY = yTop
         if (lines.isNotEmpty()) {
-            canvas.drawText(lines[0], xLeft + keyWidth, y, valPaint)
+            drawSingleLineText(canvas, lines[0], xLeft + keyWidth, currentY, valPaint)
             for (i in 1 until lines.size) {
-                y += valPaint.textSize + 4f
-                canvas.drawText(lines[i], xLeft, y, valPaint) // további sorokat balról kezdjük
+                currentY += valueLineHeight
+                drawSingleLineText(canvas, lines[i], xLeft, currentY, valPaint)
             }
         }
-        return yTop + (valPaint.textSize + 4f) * (lines.size.coerceAtLeast(1))
+
+        return (lines.size.coerceAtLeast(1) * valueLineHeight)
     }
 
     private fun drawBulletedListInColumn(
@@ -246,43 +332,52 @@ object PdfLayout {
     ): Float {
         var y = startY
         var currentPage = page
-        var pageNum = page.info.pageNumber
-        val bullet = "• "
+
+        val bulletIndent = bodyPaint.measureText("• ") + 2f
+        val itemLineHeight = lineHeight(bodyPaint)
 
         for (item in items) {
-            val wrapped = wrapText(item, bodyPaint, xRight - xLeft - bodyPaint.textSize) // hagyjunk helyet a bulletnek
-            val neededHeight = wrapped.size * (bodyPaint.textSize + 4f)
+            val wrapped = wrapText(item, bodyPaint, (xRight - xLeft - bulletIndent).coerceAtLeast(40f))
+            val neededHeight = wrapped.size.coerceAtLeast(1) * itemLineHeight + 2f
 
             y = ensureSpace(pdf, currentPage, canvas, y, neededHeight, smallPaint, globalLeft, globalRight) { newPage, pn ->
-                currentPage = newPage; pageNum = pn
+                currentPage = newPage
                 onNewPage(newPage, pn)
             }
 
-            // Első sor bullettel
             var first = true
             for (line in wrapped) {
-                val drawX = xLeft + if (first) 0f else bodyPaint.textSize // behúzás a további sorokra
                 if (first) {
-                    canvas.drawText(bullet, xLeft, y, bodyPaint)
-                    canvas.drawText(line, xLeft + bodyPaint.textSize, y, bodyPaint)
+                    drawSingleLineText(canvas, "•", xLeft, y, bodyPaint)
+                    drawSingleLineText(canvas, line, xLeft + bulletIndent, y, bodyPaint)
                     first = false
                 } else {
-                    canvas.drawText(line, drawX, y, bodyPaint)
+                    drawSingleLineText(canvas, line, xLeft + bulletIndent, y, bodyPaint)
                 }
-                y += bodyPaint.textSize + 4f
+                y += itemLineHeight
             }
+
             y += 2f
         }
+
         return y
     }
 
-    private fun drawFooter(canvas: Canvas, pageNumber: Int, smallPaint: Paint, xLeft: Float, xRight: Float) {
+    private fun drawFooter(
+        canvas: Canvas,
+        pageNumber: Int,
+        smallPaint: Paint,
+        xLeft: Float,
+        xRight: Float
+    ) {
         val ts = SimpleDateFormat("yyyy.MM.dd. HH:mm:ss", Locale.getDefault()).format(Date())
         val left = "Generálva: $ts"
         val right = "Oldal $pageNumber"
-        canvas.drawText(left, xLeft, PAGE_HEIGHT - 20f, smallPaint)
+
+        val baselineY = PAGE_HEIGHT - 16f
+        canvas.drawText(left, xLeft, baselineY, smallPaint)
         val w = smallPaint.measureText(right)
-        canvas.drawText(right, xRight - w, PAGE_HEIGHT - 20f, smallPaint)
+        canvas.drawText(right, xRight - w, baselineY, smallPaint)
     }
 
     private fun ensureSpace(
@@ -298,32 +393,75 @@ object PdfLayout {
     ): Float {
         val limit = PAGE_HEIGHT - MARGIN_B - 24f
         if (currentY + neededHeight <= limit) return currentY
-        // lábléc az előző oldalra
+
         val pn = page.info.pageNumber
         drawFooter(canvas, pn, smallPaint, xLeft, xRight)
         pdf.finishPage(page)
+
         val newPn = pn + 1
         val newPage = startPage(pdf, newPn)
         onNewPage(newPage, newPn)
+
         return MARGIN_T
     }
 
     private fun wrapText(text: String, paint: Paint, maxWidth: Float): List<String> {
+        if (text.isBlank()) return listOf("")
+
         val words = text.split(Regex("\\s+"))
         val lines = mutableListOf<String>()
         var line = ""
-        for (w in words) {
-            val candidate = if (line.isEmpty()) w else "$line $w"
+
+        for (word in words) {
+            val candidate = if (line.isEmpty()) word else "$line $word"
             if (paint.measureText(candidate) <= maxWidth) {
                 line = candidate
             } else {
                 if (line.isNotEmpty()) lines.add(line)
-                line = w
+                line = word
             }
         }
+
         if (line.isNotEmpty()) lines.add(line)
         return lines
     }
+
+    private fun lineHeight(paint: Paint): Float {
+        val fm = paint.fontMetrics
+        return (fm.descent - fm.ascent + fm.leading) + 1f
+    }
+
+    private fun drawSingleLineText(
+        canvas: Canvas,
+        text: String,
+        x: Float,
+        topY: Float,
+        paint: Paint
+    ) {
+        val baseline = topY - paint.fontMetrics.ascent
+        canvas.drawText(text, x, baseline, paint)
+    }
+
+    private fun fitRectTopRight(
+        bitmapWidth: Float,
+        bitmapHeight: Float,
+        boxLeft: Float,
+        boxTop: Float,
+        boxWidth: Float,
+        boxHeight: Float
+    ): RectF {
+        val scale = minOf(boxWidth / bitmapWidth, boxHeight / bitmapHeight)
+        val drawWidth = bitmapWidth * scale
+        val drawHeight = bitmapHeight * scale
+
+        val left = boxLeft + (boxWidth - drawWidth)
+        val top = boxTop + (boxHeight - drawHeight) / 2f
+
+        return RectF(
+            left,
+            top,
+            left + drawWidth,
+            top + drawHeight
+        )
+    }
 }
-
-
